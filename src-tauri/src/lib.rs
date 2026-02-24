@@ -4,13 +4,36 @@ use tauri::{
     Manager,
 };
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
+use tauri_plugin_deep_link::DeepLinkExt;
+
 #[tauri::command]
-fn show_main_window(app_handle: tauri::AppHandle) {
+fn check_connection() -> bool {
+    // Dynamically resolve the domain to its current IP (Cloudflare friendly)
+    if let Ok(mut addrs) = "open.musifly.net:443".to_socket_addrs() {
+        if let Some(addr) = addrs.next() {
+            return TcpStream::connect_timeout(&addr, Duration::from_secs(3)).is_ok();
+        }
+    }
+    false
+}
+
+#[tauri::command]
+async fn show_main_window(app_handle: tauri::AppHandle) {
     if let Some(main_window) = app_handle.get_webview_window("main") {
+        if check_connection() {
+            // Online: Ensure we are pointing to the live site
+            let _ = main_window.navigate("https://open.musifly.net/".parse().unwrap());
+        } else {
+            // Offline: Redirect to local offline page
+            let _ = main_window.navigate("tauri://localhost/offline.html".parse().unwrap());
+        }
+        
         let _ = main_window.show();
         let _ = main_window.set_focus();
     }
+    
     if let Some(updater_window) = app_handle.get_webview_window("updater") {
         let _ = updater_window.close();
     }
@@ -26,6 +49,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -63,6 +87,32 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // Initialize deep linking
+            app.handle().plugin(tauri_plugin_deep_link::init())?;
+
+            #[cfg(desktop)]
+            app.deep_link().register("musifly")?;
+
+            // Listen for deep links
+            let app_handle = app.handle().clone();
+            app.handle().deep_link().on_open_url(move |event| {
+                let urls = event.urls();
+                if let Some(url) = urls.first() {
+                    let url_str = url.to_string();
+                    // Example: musifly://some/path -> https://open.musifly.net/some/path
+                    if let Some(path) = url_str.strip_prefix("musifly://") {
+                        if let Some(main_window) = app_handle.get_webview_window("main") {
+                            let redirect_url = format!("https://open.musifly.net/{}", path);
+                            if let Ok(parsed_url) = redirect_url.parse() {
+                                let _ = main_window.navigate(parsed_url);
+                                let _ = main_window.show();
+                                let _ = main_window.set_focus();
+                            }
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -78,7 +128,11 @@ pub fn run() {
             let _ =
                 window.eval("document.addEventListener('contextmenu', e => e.preventDefault());");
         })
-        .invoke_handler(tauri::generate_handler![show_main_window, restart_app])
+        .invoke_handler(tauri::generate_handler![
+            show_main_window,
+            restart_app,
+            check_connection
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

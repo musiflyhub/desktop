@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musifly - Offline</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --primary: #ffffff;
+            --primary-hover: #e0e0e0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 400px;
+            padding: 20px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            width: 120px;
+            margin-bottom: 30px;
+        }
+
+        .icon-wrapper {
+            margin-bottom: 24px;
+            color: var(--text-muted);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 12px 0;
+            letter-spacing: -0.02em;
+        }
+
+        p {
+            font-size: 15px;
+            color: var(--text-muted);
+            margin: 0 0 32px 0;
+            line-height: 1.5;
+        }
+
+        .retry-btn {
+            background-color: var(--primary);
+            color: #000;
+            border: none;
+            padding: 12px 32px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .retry-btn:hover {
+            transform: scale(1.05);
+            background-color: var(--primary-hover);
+        }
+
+        .retry-btn:active {
+            transform: scale(0.98);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #ff4b4b;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
+        }
+
+        .status-text {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <img class="logo" src="a4ce96af-196a-485d-9932-9cc382db8c45.png" alt="Musifly">
+
+        <div class="status-text">
+            <span class="status-dot"></span>
+            Connection Lost
+        </div>
+
+        <h1>No Internet Connection</h1>
+        <p>We couldn't reach the Musifly servers. Please check your connection and try again.</p>
+
+        <button class="retry-btn" onclick="retry()">Retry Connection</button>
+    </div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+
+        async function retry() {
+            const btn = document.querySelector('.retry-btn');
+            btn.innerHTML = 'Checking...';
+            btn.style.opacity = '0.7';
+            btn.disabled = true;
+
+            try {
+                // Call Rust to check if Musifly is back online
+                const isOnline = await invoke('check_connection');
+
+                if (isOnline) {
+                    btn.innerHTML = 'Connecting...';
+                    // Redirect back to the live site
+                    location.href = 'https://open.musifly.net/';
+                } else {
+                    // Still offline, reset button after a short delay
+                    setTimeout(() => {
+                        btn.innerHTML = 'Retry Connection';
+                        btn.style.opacity = '1';
+                        btn.disabled = false;
+
+                        // Shake effect for feedback
+                        const container = document.querySelector('.container');
+                        container.style.animation = 'none';
+                        container.offsetHeight; // trigger reflow
+                        container.style.animation = 'shake 0.4s ease-in-out';
+                    }, 1000);
+                }
+            } catch (e) {
+                console.error(e);
+                btn.innerHTML = 'Retry Connection';
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
+        }
+
+        // Auto-retry if connection comes back online
+        window.addEventListener('online', retry);
+    </script>
+    <style>
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+    </style>
+</body>
+
+</html>
