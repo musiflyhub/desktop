@@ -1,6 +1,6 @@
 # Musifly Desktop
 
-![Musifly App Screenshot](https://providercontent.valgix.com/img/musifly/app_screen.png)
+![Musifly Desktop app](https://providercontent.valgix.com/img/musifly/app_screen.png)
 
 Musifly Desktop is the official native client for [Musifly](https://musifly.net), the premier destination for listening to music for free. This application brings the full Musifly experience to your desktop with enhanced native features and a seamless interface.
 
