@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "main",
+    "updater"
   ],
   "remote": {
     "urls": [
@@ -13,6 +14,7 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "updater:default",
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-maximize",

@@ -13,7 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "windows-latest" # for now we only focus on windows
+          - platform: "windows-latest"
+          - platform: "macos-latest"
+          - platform: "ubuntu-22.04"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -55,4 +57,4 @@ jobs:
           releaseBody: "See the assets below for the latest version of Musifly."
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.platform == 'windows-latest' && '--target x86_64-pc-windows-msvc' || '' }}
+          args: ${{ matrix.platform == 'windows-latest' && '--target x86_64-pc-windows-msvc' || matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
