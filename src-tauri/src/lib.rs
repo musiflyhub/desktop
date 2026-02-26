@@ -22,12 +22,18 @@ fn check_connection() -> bool {
 #[tauri::command]
 async fn show_main_window(app_handle: tauri::AppHandle) {
     if let Some(main_window) = app_handle.get_webview_window("main") {
+        let current_url = main_window.url().map(|u| u.to_string()).unwrap_or_default();
+        
         if check_connection() {
-            // Online: Ensure we are pointing to the live site
-            let _ = main_window.navigate("https://open.musifly.net/".parse().unwrap());
+            // Online: Only navigate if we're not already on the target domain
+            if !current_url.starts_with("https://open.musifly.net/") {
+                let _ = main_window.navigate("https://open.musifly.net/".parse().unwrap());
+            }
         } else {
-            // Offline: Redirect to local offline page
-            let _ = main_window.navigate("tauri://localhost/offline.html".parse().unwrap());
+            // Offline: Redirect to local offline page if not already there
+            if !current_url.contains("offline.html") {
+                let _ = main_window.navigate("tauri://localhost/offline.html".parse().unwrap());
+            }
         }
         
         let _ = main_window.show();
@@ -51,7 +57,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let _ = show_main_window(app.clone());
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.show();
+                let _ = main_window.set_focus();
+            }
         }))
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -90,9 +99,6 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Initialize deep linking
-            app.handle().plugin(tauri_plugin_deep_link::init())?;
-
             #[cfg(desktop)]
             app.deep_link().register("musifly")?;
 
@@ -102,15 +108,19 @@ pub fn run() {
                 let urls = event.urls();
                 if let Some(url) = urls.first() {
                     let url_str = url.to_string();
-                    // Example: musifly://some/path -> https://open.musifly.net/some/path
-                    if let Some(path) = url_str.strip_prefix("musifly://") {
-                        if let Some(main_window) = app_handle.get_webview_window("main") {
-                            let redirect_url = format!("https://open.musifly.net/{}", path);
-                            if let Ok(parsed_url) = redirect_url.parse() {
-                                let _ = main_window.navigate(parsed_url);
-                                let _ = main_window.show();
-                                let _ = main_window.set_focus();
-                            }
+                    // Extract path from musifly://path or musifly://some/path
+                    // We remove the scheme and ensure there's a leading slash if needed
+                    let path = url_str
+                        .strip_prefix("musifly://")
+                        .unwrap_or(&url_str)
+                        .trim_start_matches('/');
+                    
+                    if let Some(main_window) = app_handle.get_webview_window("main") {
+                        let redirect_url = format!("https://open.musifly.net/{}", path);
+                        if let Ok(parsed_url) = redirect_url.parse() {
+                            let _ = main_window.navigate(parsed_url);
+                            let _ = main_window.show();
+                            let _ = main_window.set_focus();
                         }
                     }
                 }
